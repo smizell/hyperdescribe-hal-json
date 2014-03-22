@@ -9,7 +9,7 @@ HyperdescribeHalJSON = module.exports = {
 }
 },{"./lib/builder":2}],2:[function(require,module,exports){
 (function() {
-  var getEmbedded, getPropertyValue, getSelfLink, mapEmbedded, mapEntity, mapExtraProperties, mapLinks, mapObject, mapProperties, mapToHal, propertyTypes,
+  var getEmbedded, getPropertyValue, getRel, getSelfLink, mapEmbedded, mapEntity, mapExtraProperties, mapLinks, mapObject, mapProperties, mapToHal, propertyTypes,
     __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
 
   propertyTypes = {
@@ -29,18 +29,25 @@ HyperdescribeHalJSON = module.exports = {
   };
 
   mapEntity = function(entity) {
-    var extra, extraProperties, newEntity, _i, _len, _ref, _ref1, _ref2, _ref3;
+    var embedded, extra, extraProperties, newEntity, _i, _len, _ref, _ref1, _ref2, _ref3;
     if (((_ref = entity.content) != null ? _ref.properties : void 0) != null) {
       newEntity = mapProperties(entity.content.properties);
+    } else {
+      newEntity = {};
     }
     if (((_ref1 = entity.content) != null ? _ref1.transitions : void 0) != null) {
       newEntity._links = mapLinks(entity.content.transitions);
     }
-    if (newEntity._links.self == null) {
-      newEntity._links.self = getSelfLink(entity);
+    if (newEntity._links != null) {
+      if (newEntity._links.self == null) {
+        newEntity._links.self = getSelfLink(entity);
+      }
     }
     if (((_ref2 = entity.content) != null ? _ref2.entities : void 0) != null) {
-      newEntity._embedded = mapEmbedded(entity.content.entities);
+      embedded = getEmbedded(entity.content.entities);
+      if (embedded.length > 0) {
+        newEntity._embedded = mapEmbedded(embedded);
+      }
       extraProperties = mapExtraProperties(entity.content.entities);
       _ref3 = Object.keys(extraProperties);
       for (_i = 0, _len = _ref3.length; _i < _len; _i++) {
@@ -93,10 +100,14 @@ HyperdescribeHalJSON = module.exports = {
     return String(property.value);
   };
 
+  getRel = function(obj) {
+    return obj.rels.join(" ");
+  };
+
   mapObject = function(items) {
     return items.reduce(function(itemObj, item) {
       var rel;
-      rel = item.rels[0];
+      rel = getRel(item);
       if (__indexOf.call(itemObj, rel) < 0) {
         itemObj[rel] = [];
       }
@@ -108,17 +119,18 @@ HyperdescribeHalJSON = module.exports = {
     var links;
     links = transitions.filter(function(transition) {
       var _ref;
-      return ((_ref = transition.method) != null ? _ref.valueOf() : void 0) === 'GET' || (transition.method == null);
+      return (((_ref = transition.method) != null ? _ref.valueOf() : void 0) === 'GET' || (transition.method == null)) && (transition.rels != null);
     });
     return links.reduce(function(linkObj, link) {
-      var halLink;
+      var halLink, rel;
+      rel = getRel(link);
       halLink = {
         href: link.url
       };
       if (link.isTemplated) {
         halLink.templated = true;
       }
-      linkObj[link.rels[0]].push(halLink);
+      linkObj[rel].push(halLink);
       return linkObj;
     }, mapObject(links));
   };
@@ -130,11 +142,11 @@ HyperdescribeHalJSON = module.exports = {
     });
   };
 
-  mapEmbedded = function(entities) {
-    var embedded;
-    embedded = getEmbedded(entities);
+  mapEmbedded = function(embedded) {
     return embedded.reduce(function(entityObj, entity) {
-      entityObj[entity.rels[0]].push(mapEntity(entity));
+      var rel;
+      rel = getRel(entity);
+      entityObj[rel].push(mapEntity(entity));
       return entityObj;
     }, mapObject(embedded));
   };

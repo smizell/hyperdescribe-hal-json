@@ -22,12 +22,18 @@ HAL has an entity at it's root.
       mapEntity(hyperdescribe.hyperdescribe)
 
     mapEntity = (entity) ->
-      newEntity = mapProperties(entity.content.properties) if entity.content?.properties?
+      if entity.content?.properties?
+        newEntity = mapProperties(entity.content.properties)
+      else
+        newEntity = {}
+      
       newEntity._links = mapLinks(entity.content.transitions) if entity.content?.transitions?
-      newEntity._links.self = getSelfLink(entity) unless newEntity._links.self?
+      if newEntity._links?
+        newEntity._links.self = getSelfLink(entity) unless newEntity._links.self?
       
       if entity.content?.entities?
-        newEntity._embedded = mapEmbedded(entity.content.entities)
+        embedded = getEmbedded(entity.content.entities)
+        newEntity._embedded = mapEmbedded(embedded) if embedded.length > 0
         extraProperties = mapExtraProperties(entity.content.entities)
 
         for extra in Object.keys(extraProperties)
@@ -43,6 +49,8 @@ HAL has an entity at it's root.
         properties[property.name] = getPropertyValue(property)
         properties
       , {}
+
+Hyperdescribe allows for entities that do not have URLs or link relations. This allows for nesting properties in plain old JSON. 
 
     mapExtraProperties = (entities) ->
       extras = entities.filter (entity) ->
@@ -65,9 +73,12 @@ HAL has an entity at it's root.
         return propertyTypes[property.type](property.value)
       return String(property.value)
 
+    getRel = (obj) ->
+      obj.rels.join(" ")
+
     mapObject = (items) ->
       items.reduce (itemObj, item) ->
-        rel = item.rels[0]
+        rel = getRel(item)
         itemObj[rel] = [] unless rel in itemObj
         itemObj
       , {}
@@ -79,24 +90,32 @@ There are two reserved property names:
 
 While each of these are objects, their properities MAY be arrays. To stay consistent, we will always treat these as arrays.
 
+## Links
+
+A link in Hyperdescribe for HAL will be a safe, non-idempotent link.
+
     mapLinks = (transitions) ->
       links = transitions.filter (transition) ->
-        transition.method?.valueOf() == 'GET' or !transition.method?
+        (transition.method?.valueOf() == 'GET' or !transition.method?) and transition.rels?
 
       links.reduce (linkObj, link) ->
+        rel = getRel(link)
         halLink = { href: link.url }
         halLink.templated = true if link.isTemplated
 
-        linkObj[link.rels[0]].push(halLink)
+        linkObj[rel].push(halLink)
         linkObj
       , mapObject(links)
+
+Embedded items must have a link relation and a URL to be considered an embedded entity.
 
     getEmbedded = (entities) ->
       entities.filter (entity) -> entity.rels?.length? and entity.url?
 
-    mapEmbedded = (entities) ->
-      embedded = getEmbedded(entities)
+    mapEmbedded = (embedded) ->
       embedded.reduce (entityObj, entity) ->
-        entityObj[entity.rels[0]].push(mapEntity(entity))
+        rel = getRel(entity)
+        entityObj[rel].push(mapEntity(entity))
         entityObj
       , mapObject(embedded)
+

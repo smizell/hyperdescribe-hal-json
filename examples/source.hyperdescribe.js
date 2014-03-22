@@ -1,6 +1,6 @@
 hd = module.exports = {
   "hyperdescribe": {
-    "version": "0.1.0",
+    "version": "0.1.1",
     "prefixes": [
       {
         "name":"ea",
@@ -42,18 +42,17 @@ hd = module.exports = {
           "property": "test",
           "content": {
             "properties": [
-              { "name": "a", "value": "5" },
-              { "name": "b", "value": "USD" },
-              { "name": "c", "value": "shipped" }
+              { "name": "a", "value": "hello" },
+              { "name": "b", "value": "world" }
             ],
             "entities": [
               {
                 "property": "test2",
                 "content": {
                   "properties": [
-                    { "name": "a", "type": "integer", "value": "6" },
-                    { "name": "b", "value": "5" },
-                    { "name": "c", "value": "4" }
+                    { "name": "a", "type": "integer", "value": "1" },
+                    { "name": "b", "type": "integer", "value": "2" },
+                    { "name": "c", "type": "integer", "value": "3" },
                   ]
                 }
               }
