@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+  <title>Converting from Hyperdescribe to HAL+JSON</title>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <link rel="stylesheet" media="all" href="public/stylesheets/normalize.css" />
+  <link rel="stylesheet" media="all" href="docco.css" />
+</head>
+<body>
+  <div class="container">
+    <div class="page">
+
+      <div class="header">
+        
+          
+          <h1 id="converting-from-hyperdescribe-to-hal-json">Converting from Hyperdescribe to HAL+JSON</h1>
+<p>HAL has four different hypermedia elements:</p>
+<ol>
+<li>Entities</li>
+<li>Properties</li>
+<li>Transitions</li>
+<li>Embedded entities</li>
+</ol>
+<p>This document will cover these elements in this order.</p>
+<h2 id="entities">Entities</h2>
+<p>HAL has an entity at it’s root.</p>
+
+          
+            <div class='highlight'><pre>propertyTypes = 
+  <span class="hljs-attribute">integer</span>: parseInt
+  <span class="hljs-attribute">boolean</span>: <span class="hljs-function"><span class="hljs-params">(property)</span> -&gt;</span> <span class="hljs-keyword">if</span> property == <span class="hljs-string">'true'</span> <span class="hljs-keyword">then</span> <span class="hljs-literal">true</span> <span class="hljs-keyword">else</span> <span class="hljs-literal">false</span>
+  <span class="hljs-attribute">float</span>: parseFloat
+
+mapToHal = <span class="hljs-built_in">module</span>.<span class="hljs-function"><span class="hljs-title">exports</span> = <span class="hljs-params">(hyperdescribe)</span> -&gt;</span>
+  mapEntity(hyperdescribe.hyperdescribe)
+
+<span class="hljs-function"><span class="hljs-title">mapEntity</span> = <span class="hljs-params">(entity)</span> -&gt;</span>
+  newEntity = mapProperties(entity.content.properties) <span class="hljs-keyword">if</span> entity.content?.properties?
+  newEntity._links = mapLinks(entity.content.transitions) <span class="hljs-keyword">if</span> entity.content?.transitions?
+  newEntity._links.self = getSelfLink(entity) <span class="hljs-keyword">unless</span> newEntity._links.self?
+  
+  <span class="hljs-keyword">if</span> entity.content?.entities?
+    newEntity._embedded = mapEmbedded(entity.content.entities)
+    extraProperties = mapExtraProperties(entity.content.entities)
+
+    <span class="hljs-keyword">for</span> extra <span class="hljs-keyword">in</span> Object.keys(extraProperties)
+      newEntity[extra] = extraProperties[extra]
+
+  newEntity
+
+<span class="hljs-function"><span class="hljs-title">getSelfLink</span> = <span class="hljs-params">(entity)</span> -&gt;</span>
+  [{ <span class="hljs-attribute">href</span>: entity.url }]
+
+<span class="hljs-function"><span class="hljs-title">mapProperties</span> = <span class="hljs-params">(properties)</span> -&gt;</span>
+  properties.reduce <span class="hljs-function"><span class="hljs-params">(properties, property)</span> -&gt;</span>
+    properties[property.name] = getPropertyValue(property)
+    properties
+  , {}
+
+<span class="hljs-function"><span class="hljs-title">mapExtraProperties</span> = <span class="hljs-params">(entities)</span> -&gt;</span>
+  extras = entities.filter <span class="hljs-function"><span class="hljs-params">(entity)</span> -&gt;</span>
+    !entity.url? <span class="hljs-keyword">and</span> !entity.rels? <span class="hljs-keyword">and</span> entity.property? <span class="hljs-keyword">and</span> entity.content?
+
+  extras.reduce <span class="hljs-function"><span class="hljs-params">(extraObj, extra)</span> -&gt;</span>
+    extraObj[extra.property] = mapProperties(extra.content.properties)
+
+    <span class="hljs-keyword">if</span> extra.content.entities?
+      extraExtra = mapExtraProperties(extra.content.entities)
+
+      <span class="hljs-keyword">for</span> extra2 <span class="hljs-keyword">in</span> Object.keys(extraExtra)
+        extraObj[extra.property][extra2] = extraExtra[extra2]
+
+    extraObj
+  , {}
+
+<span class="hljs-function"><span class="hljs-title">getPropertyValue</span> = <span class="hljs-params">(property)</span> -&gt;</span>
+  <span class="hljs-keyword">if</span> property.type? <span class="hljs-keyword">and</span> property.type != <span class="hljs-string">'text'</span>
+    <span class="hljs-keyword">return</span> propertyTypes[property.type](property.value)
+  <span class="hljs-keyword">return</span> String(property.value)
+
+<span class="hljs-function"><span class="hljs-title">mapObject</span> = <span class="hljs-params">(items)</span> -&gt;</span>
+  items.reduce <span class="hljs-function"><span class="hljs-params">(itemObj, item)</span> -&gt;</span>
+    rel = item.rels[<span class="hljs-number">0</span>]
+    itemObj[rel] = [] <span class="hljs-keyword">unless</span> rel <span class="hljs-keyword">in</span> itemObj
+    itemObj
+  , {}</pre></div>
+          
+        
+
+        
+          <div class="toc">
+            <h3>Table of Contents</h3>
+            <ol>
+              
+                
+                <li>
+                  <a class="source" href="builder.html">
+                    builder.litcoffee
+                  </a>
+                </li>
+              
+                
+                <li>
+                  <a class="source" href="describer.html">
+                    describer.litcoffee
+                  </a>
+                </li>
+              
+            </ol>
+          </div>
+        
+      </div>
+
+      
+        
+        <p>There are two reserved property names:</p>
+<ul>
+<li><code>_links</code> - which is an object of links</li>
+<li><code>_embedded</code> - which is an object of entities</li>
+</ul>
+<p>While each of these are objects, their properities MAY be arrays. To stay consistent, we will always treat these as arrays.</p>
+
+        
+          <div class='highlight'><pre><span class="hljs-function"><span class="hljs-title">mapLinks</span> = <span class="hljs-params">(transitions)</span> -&gt;</span>
+  links = transitions.filter <span class="hljs-function"><span class="hljs-params">(transition)</span> -&gt;</span>
+    transition.method?.valueOf() == <span class="hljs-string">'GET'</span> <span class="hljs-keyword">or</span> !transition.method?
+
+  links.reduce <span class="hljs-function"><span class="hljs-params">(linkObj, link)</span> -&gt;</span>
+    halLink = { <span class="hljs-attribute">href</span>: link.url }
+    halLink.templated = <span class="hljs-literal">true</span> <span class="hljs-keyword">if</span> link.isTemplated
+
+    linkObj[link.rels[<span class="hljs-number">0</span>]].push(halLink)
+    linkObj
+  , mapObject(links)
+
+<span class="hljs-function"><span class="hljs-title">getEmbedded</span> = <span class="hljs-params">(entities)</span> -&gt;</span>
+  entities.filter <span class="hljs-function"><span class="hljs-params">(entity)</span> -&gt;</span> entity.rels?.length? <span class="hljs-keyword">and</span> entity.url?
+
+<span class="hljs-function"><span class="hljs-title">mapEmbedded</span> = <span class="hljs-params">(entities)</span> -&gt;</span>
+  embedded = getEmbedded(entities)
+  embedded.reduce <span class="hljs-function"><span class="hljs-params">(entityObj, entity)</span> -&gt;</span>
+    entityObj[entity.rels[<span class="hljs-number">0</span>]].push(mapEntity(entity))
+    entityObj
+  , mapObject(embedded)</pre></div>
+        
+      
+      <div class="fleur">h</div>
+    </div>
+  </div>
+</body>
+</html>
